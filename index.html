@@ -1,0 +1,665 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>El Ayudante Mágico: IA en Educación Infantil (0-3 años)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Nunito', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            light: '#f0fdfa', // teal-50
+                            DEFAULT: '#0d9488', // teal-600
+                            dark: '#0f766e', // teal-700
+                        },
+                        stone: {
+                            50: '#fafaf9',
+                            100: '#f5f5f4',
+                            200: '#e7e5e4',
+                            800: '#292524',
+                            900: '#1c1917',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #fafaf9;
+            color: #292524;
+        }
+       
+        /* Required Chart Container Styling */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 40vh;
+            max-height: 320px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f5f5f4;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d6d3d1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a29e;
+        }
+
+
+        .prompt-box {
+            background-image: repeating-linear-gradient(transparent, transparent 31px, #f5f5f4 31px, #f5f5f4 32px);
+            line-height: 32px;
+            padding-top: 8px;
+        }
+
+
+        .toast {
+            visibility: hidden;
+            min-width: 300px;
+            margin-left: -150px;
+            background-color: #0d9488;
+            color: white;
+            text-align: center;
+            border-radius: 9999px;
+            padding: 16px 24px;
+            position: fixed;
+            z-index: 100;
+            left: 50%;
+            bottom: -50px;
+            font-size: 16px;
+            font-weight: 700;
+            opacity: 0;
+            transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .toast.show {
+            visibility: visible;
+            opacity: 1;
+            bottom: 40px;
+        }
+
+
+        .nav-btn {
+            transition: all 0.2s ease-in-out;
+        }
+        .nav-btn.active {
+            background-color: #ffffff;
+            border-left-width: 4px;
+            border-color: #0d9488;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            font-weight: 700;
+            color: #0f766e;
+        }
+       
+        .variable-highlight {
+            background-color: #ccfbf1;
+            color: #0f766e;
+            font-weight: 800;
+            padding: 2px 6px;
+            border-radius: 6px;
+            border: 1px solid #99f6e4;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-brand-light selection:text-brand-dark flex flex-col min-h-screen">
+
+
+<!-- Chosen Palette: Warm neutral background (stone) for an educational, calm feel. Vibrant pastel accents (teal, rose, emerald, blue, amber) used exclusively for categorization and interactive elements. -->
+<!-- Application Structure Plan: A dashboard SPA layout prioritizing rapid task execution for busy educators. The left sidebar functions as a persistent "Classroom Map" (Rincones). The central content area acts as the active workspace, instantly displaying the selected category's tools. An 'Overview' dashboard provides visual data on the toolkit's capabilities. This non-linear structure allows teachers to bypass reading the whole guide and jump straight to the tool they need for a specific daily task (e.g., writing a note, creating a game). -->
+<!-- Visualization & Content Choices: Source Report -> Goal: Summarize tool distribution and pedagogical benefits -> Viz: Doughnut Chart (Tool Count) & Polar Area Chart (Pedagogical Impact) -> Interaction: Hover tooltips for detailed metrics -> Justification: Doughnut charts perfectly illustrate proportional distribution of prompts across classroom areas. The Polar Area chart translates abstract AI features into concrete educational values (Time saving, Emotional IQ). -> Method: Chart.js enclosed in strict responsive CSS containers. NO SVG or Mermaid. Emojis serve as the iconographic language. -->
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+
+<div id="toast" class="toast flex items-center justify-center gap-3">
+    <span class="text-2xl">✨</span>
+    <span>¡Prompt copiado al portapapeles!</span>
+</div>
+
+
+<div class="flex flex-col md:flex-row flex-grow">
+
+
+    <!-- Sidebar Navigation -->
+    <aside class="w-full md:w-[320px] lg:w-[380px] bg-stone-100 border-r border-stone-200 flex flex-col md:h-screen md:sticky md:top-0 z-20">
+        <div class="p-6 md:p-8 flex-col flex-grow overflow-y-auto">
+            <div class="flex items-center gap-4 mb-3">
+                <div class="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-stone-200 text-3xl">
+                    🎒
+                </div>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-extrabold text-stone-800 leading-tight">El Ayudante<br><span class="text-brand">Mágico IA</span></h1>
+                </div>
+            </div>
+           
+            <p class="text-[15px] text-stone-600 mb-8 leading-relaxed font-medium">
+                Guía práctica para maestras de 0 a 3 años. Deja que la IA haga el trabajo de escritorio para regalarte más tiempo de calidad en el aula.
+            </p>
+
+
+            <h2 class="text-xs font-bold text-stone-400 uppercase tracking-wider mb-3 px-2">Explora el Aula</h2>
+            <nav id="navigation" class="space-y-1.5 flex flex-col pb-6">
+                <!-- Navigation Buttons Injected via JS -->
+            </nav>
+        </div>
+       
+        <!-- Footer in Sidebar -->
+        <div class="p-6 bg-stone-200/40 border-t border-stone-200 text-center">
+            <p class="text-xs font-bold text-stone-500 flex items-center justify-center gap-2">
+                <span>🧸</span> Diseñado para la etapa 0-3 años
+            </p>
+        </div>
+    </aside>
+
+
+    <!-- Main Content Area -->
+    <main class="w-full flex-1 p-4 md:p-8 lg:p-12 xl:p-16 flex flex-col min-w-0">
+       
+        <!-- Dynamic Header -->
+        <header class="mb-8 md:mb-12 bg-white p-6 md:p-10 rounded-[2rem] shadow-sm border border-stone-100 flex flex-col md:flex-row items-start md:items-center gap-6">
+            <div id="view-icon-container" class="w-20 h-20 md:w-24 md:h-24 rounded-3xl flex items-center justify-center text-4xl md:text-5xl shrink-0 shadow-inner">
+                <span id="view-icon">📊</span>
+            </div>
+            <div>
+                <h2 id="view-title" class="text-3xl md:text-4xl font-extrabold text-stone-800 mb-3 tracking-tight">
+                    Panel General del Aula
+                </h2>
+                <p id="view-desc" class="text-lg md:text-xl text-stone-600 leading-relaxed font-medium">
+                    Bienvenida a tu ecosistema de Inteligencia Artificial. Aquí puedes ver un resumen de las herramientas disponibles para enriquecer tu labor docente.
+                </p>
+            </div>
+        </header>
+
+
+        <!-- Dynamic Content Container -->
+        <div id="content-area" class="space-y-8 flex-grow">
+            <!-- Content Injected via JS -->
+        </div>
+
+
+    </main>
+
+
+</div>
+
+
+<script>
+    // --- Application State & Data ---
+    const appData = {
+        rincones: [
+            {
+                id: "overview",
+                icon: "📊",
+                title: "Panel General",
+                short: "Resumen y Métricas",
+                color: "#78716c",
+                bgColor: "bg-stone-100",
+                desc: "Bienvenida a tu ecosistema de Inteligencia Artificial. Explora cómo estas herramientas transforman el tiempo de gestión en tiempo de calidad con tus alumnos.",
+                intro: "Este panel ofrece una vista panorámica de tu nuevo asistente digital. Observa cómo se distribuyen las herramientas y el impacto directo que tienen en las diferentes áreas del desarrollo infantil y tu bienestar docente.",
+                tools: []
+            },
+            {
+                id: "r1",
+                icon: "🎨",
+                title: "RINCÓN 1: Material Visual",
+                short: "Material Visual y Rutinas",
+                color: "#f43f5e",
+                bgColor: "bg-rose-100",
+                desc: "Crea imágenes preciosas y personalizadas para el aula, huyendo de los dibujos comerciales.",
+                intro: "El ambiente es el 'tercer maestro'. En este rincón, encontrarás las instrucciones exactas para que la IA genere recursos visuales (pictogramas, etiquetas, emocionarios) con una estética Montessori coherente, cálida y adaptada a tus propios alumnos.",
+                tools: [
+                    {
+                        name: "1. Creador de Pictogramas y Rutinas",
+                        purpose: "Generar tarjetas visuales coherentes para paneles de rutinas o emocionarios, manteniendo un estilo unificado en toda la clase.",
+                        engine: "Gemini / Nano Banana / ChatGPT",
+                        prompt: "Dibuja una ilustración infantil con estilo de acuarela muy suave y bordes redondeados. Colores pastel tranquilos, estilo pedagogía Montessori. Fondo totalmente blanco. Cero letras y cero textos. Quiero que dibujes: [ESCRIBE LO QUE NECESITAS, ej. Un niño de dos años bostezando y frotándose los ojos / Un biberón de leche / Una niña sonriendo mucho]."
+                    },
+                    {
+                        name: "2. El Mago de los Disfraces",
+                        purpose: "Crear etiquetas motivadoras para percheros o proyectos subiendo la foto real del niño/a para integrarla en una ilustración.",
+                        engine: "IA de Imagen (Nano Banana)",
+                        warning: "Asegúrate siempre de contar con la autorización de las familias en la ley de protección de datos antes de subir fotos reales.",
+                        prompt: "Analiza cuidadosamente las dos imágenes adjuntas:\nFotografía del niño.\nImagen del pirata.\nSustituye únicamente el rostro del pirata por el del niño, manteniendo intactos el cuerpo, vestimenta, postura, iluminación, sombras y fondo originales del pirata.\nEl nuevo rostro debe integrarse de forma totalmente natural, respetando:\nProporciones anatómicas correctas.\nDirección de la luz y temperatura de color de la escena original.\nExpresión facial coherente con la pose del pirata.\nAjuste preciso del tono de piel, nitidez y enfoque.\nNo modifiques el estilo artístico ni el entorno. El resultado final debe parecer una única imagen original y no un montaje evidente."
+                    }
+                ]
+            },
+            {
+                id: "r2",
+                icon: "🎶",
+                title: "RINCÓN 2: Laboratorio Sensorial",
+                short: "Sensorial y Musical",
+                color: "#eab308",
+                bgColor: "bg-amber-100",
+                desc: "Para no quedarte nunca sin ideas de actividades ni canciones en el día a día.",
+                intro: "La etapa 0-3 es pura exploración física. Usa las herramientas de este rincón para diseñar rápidamente experiencias sensoriales (cajas de experimentación, circuitos) y transformar logísticas aburridas en rutinas musicales mágicas.",
+                tools: [
+                    {
+                        name: "3. Banco Infinito de Experiencias",
+                        purpose: "Diseñar cajas de experimentación o retos de psicomotricidad de forma rápida con materiales cotidianos accesibles.",
+                        engine: "Cualquier IA de texto",
+                        prompt: "Dame 5 ideas de actividades para mi clase de [EDAD, ej. 12 a 18 meses] sobre el tema [TEMA, ej. El Otoño]. Quiero que incluyas: 2 cajas sensoriales para tocar, 2 retos de psicomotricidad gruesa (movimiento) y 1 juego de escuchar sonidos. Usa solo materiales de andar por casa, reciclados o de la naturaleza. Explícame paso a paso cómo prepararlo y qué precauciones de seguridad debo tener."
+                    },
+                    {
+                        name: "4. Compositor de Canciones y Audios",
+                        purpose: "Inventar letras pegadizas para momentos clave del día (recoger, lavar manos) o generar pistas de audio ambientales.",
+                        engine: "IA de texto / Suno.ai",
+                        prompt: "Inventa la letra de una canción muy corta para cantar con mis niños mientras [LA RUTINA, ej. nos ponemos los abrigos]. Escribe la letra para que encaje con la melodía de la canción popular [CANCION CONOCIDA, ej. Estrellita dónde estás]. Usa rimas muy sencillas.\n\n(Nota avanzada: Si usas generadores de música como Suno.ai para crear música relajante de fondo para la siesta, usa este texto: \"Música instrumental ambiental para bebés, 50 BPM, muy lenta y relajante, sonido de agua suave de fondo, marimba de madera, sin voces, sin percusión\")."
+                    }
+                ]
+            },
+            {
+                id: "r3",
+                icon: "🎭",
+                title: "RINCÓN 3: Magia de Cuentos",
+                short: "Emociones y Cuentos",
+                color: "#10b981",
+                bgColor: "bg-emerald-100",
+                desc: "Trabaja los conflictos del día a día usando la fantasía, cuentos reparadores y narrativas.",
+                intro: "El pensamiento mágico es la llave para la educación emocional. Aquí aprenderás a usar la IA para inventar cuentos donde los peluches del aula viven los mismos conflictos que los niños, ayudándoles a verbalizar y gestionar lo que sienten.",
+                tools: [
+                    {
+                        name: "5. Cuentos Reparadores (Mascota)",
+                        purpose: "Inventar historias donde a la mascota de la clase le pasa exactamente lo mismo que a los niños para ayudarles a entender sus emociones.",
+                        engine: "Cualquier IA de texto",
+                        prompt: "Eres un cuentacuentos infantil. Inventa un cuento muy corto (10 líneas) protagonizado por la mascota de nuestra clase, que es un [TIPO DE MASCOTA Y NOMBRE, ej. Conejo Pepo]. Hoy en clase ha pasado esto: [EL CONFLICTO, ej. Hugo no quería recoger los bloques y se ha enfadado]. Haz que a la mascota le pase lo mismo y sienta esa emoción. Usa palabras sencillas, onomatopeyas (¡Ay!, ¡Uf!) y explica cómo los niños de la clase le ayudan a respirar y a solucionarlo."
+                    },
+                    {
+                        name: "6. Creador de Libros (Storybook)",
+                        purpose: "Crear un mini-cuento completo y estructurado en páginas cuando surja un interés repentino en el aula (ej. encuentran un bicho en el patio).",
+                        engine: "Gema 'Storybook' en Gemini",
+                        prompt: "Crea un cuento ilustrado para niños de [EDAD, ej. 2 años] que tenga como protagonista a [PROTAGONISTA, ej. un caracol muy lento]. Divide el cuento en 4 páginas muy visuales. Para cada página, dame exactamente esto:\n\n1. El texto para leer: Una frase muy corta, que rime y tenga una onomatopeya. Debe ser en mayúscula y con letra tipo “Sans Serif”.\n\n2. La imagen: Describe qué se vería en la ilustración de esa página para que yo me la imagine o la genere después. El tono debe ser alegre, muy repetitivo y captar la atención de los más pequeños."
+                    }
+                ]
+            },
+            {
+                id: "r4",
+                icon: "🧸",
+                title: "RINCÓN 4: Comunicación",
+                short: "Vínculo con Familias",
+                color: "#3b82f6",
+                bgColor: "bg-blue-100",
+                desc: "Agrupa todo lo que te ayuda a comunicarte con los padres y a evaluar sin burocracia.",
+                intro: "La burocracia es la ladrona del tiempo docente. Delega en la IA la estructuración de notas, rúbricas y boletines. Tú aportas la observación humana y los datos; la IA le da el formato cálido y profesional que las familias necesitan.",
+                tools: [
+                    {
+                        name: "7. Redactor Empático de Notas",
+                        purpose: "Transformar tus notas rápidas en mensajes cálidos y tranquilizadores para la agenda diaria, sin sonar robótica.",
+                        engine: "Cualquier IA de texto",
+                        prompt: "Eres una educadora infantil de 0 a 3 años muy cariñosa y profesional. Escribe una nota breve (máximo 5 líneas) para la agenda de la familia de [NOMBRE DEL NIÑO]. Hoy ha pasado esto: [ESCRIBE AQUÍ LO QUE HA PASADO, ej. ha llorado al entrar, ha comido todo el puré y ha jugado con la arena]. Redacta la nota con un tono muy empático, validando sus emociones. No uses palabras negativas como 'malo', 'retraso' o 'problema'... Empieza con un saludo cálido y termina con un mensaje de equipo familia-escuela."
+                    },
+                    {
+                        name: "8. Creador de Resúmenes Semanales",
+                        purpose: "Generar el texto del boletín semanal del viernes, explicando a las familias qué hitos de desarrollo han alcanzado jugando.",
+                        engine: "Cualquier IA de texto",
+                        prompt: "Escribe un resumen semanal muy visual y alegre para los padres de mi aula de [EDAD, ej. 1 a 2 años]. Esta semana hemos jugado a: [ESCRIBE LAS ACTIVIDADES, ej. pintar con yogur y recoger hojas secas]. Organiza el texto usando algunos emojis. Explica brevemente, con lenguaje sencillo, qué beneficios para su desarrollo (como la motricidad fina o la socialización) tienen estas actividades. Añade al final un pequeño consejo de algo que pueden hacer en casa el fin de semana."
+                    },
+                    {
+                        name: "9. Generador de Rúbricas",
+                        purpose: "Crear listas de observación a medida para no tener que inventar indicadores de desarrollo desde cero.",
+                        engine: "Cualquier IA de texto",
+                        prompt: "Soy maestra de educación infantil. Necesito una tabla para observar el desarrollo de mis alumnos de [EDAD, ej. 24 meses] en el área de [ÁREA, ej. lenguaje y comunicación]. Hazme una lista con 8 cosas concretas que debo observar en clase (indicadores positivos). Ponlo en formato de tabla con columnas para marcar: 'Aún no', 'En proceso' y 'Conseguido'."
+                    }
+                ]
+            }
+        ]
+    };
+
+
+    let activeRinconId = appData.rincones[0].id;
+    let chartDist = null;
+    let chartImpact = null;
+
+
+    // --- Core Functions ---
+    function initApp() {
+        renderNavigation();
+        loadRincon(activeRinconId);
+    }
+
+
+    function renderNavigation() {
+        const navContainer = document.getElementById('navigation');
+        navContainer.innerHTML = '';
+
+
+        appData.rincones.forEach(rincon => {
+            const btn = document.createElement('button');
+            const isOverview = rincon.id === 'overview';
+           
+            btn.className = `nav-btn w-full text-left px-5 py-3.5 rounded-r-2xl border-l-4 border-transparent text-stone-600 hover:bg-stone-200 flex items-center gap-3.5 ${rincon.id === activeRinconId ? 'active' : ''}`;
+           
+            let countBadge = isOverview ? '' : `<span class="bg-white border border-stone-200 text-stone-600 text-[11px] font-extrabold px-2.5 py-1 rounded-full shadow-sm">${rincon.tools.length}</span>`;
+
+
+            btn.innerHTML = `
+                <span class="text-2xl">${rincon.icon}</span>
+                <span class="flex-grow font-semibold tracking-wide text-[15px]">${rincon.short}</span>
+                ${countBadge}
+            `;
+
+
+            btn.addEventListener('click', () => {
+                activeRinconId = rincon.id;
+                updateNavStyles();
+                loadRincon(rincon.id);
+            });
+
+
+            navContainer.appendChild(btn);
+        });
+    }
+
+
+    function updateNavStyles() {
+        const buttons = document.querySelectorAll('.nav-btn');
+        buttons.forEach((btn, index) => {
+            if (appData.rincones[index].id === activeRinconId) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    }
+
+
+    function formatPromptText(text) {
+        // Highlight logic for [VARIABLES]
+        let formatted = text.replace(/\[(.*?)\]/g, '<span class="variable-highlight">[$1]</span>');
+        formatted = formatted.replace(/\n/g, '<br>');
+        return formatted;
+    }
+
+
+    function copyToClipboard(text) {
+        const el = document.createElement("textarea");
+        el.value = text;
+        document.body.appendChild(el);
+        el.select();
+        try {
+            document.execCommand('copy');
+            showToastMessage();
+        } catch (err) {
+            console.error('Copy failed', err);
+        }
+        document.body.removeChild(el);
+    }
+
+
+    function showToastMessage() {
+        const toast = document.getElementById("toast");
+        toast.classList.add("show");
+        setTimeout(() => toast.classList.remove("show"), 3500);
+    }
+
+
+    // --- Rendering Views ---
+    function loadRincon(id) {
+        const data = appData.rincones.find(r => r.id === id);
+        if (!data) return;
+
+
+        // Update Header
+        document.getElementById('view-icon').textContent = data.icon;
+        document.getElementById('view-title').textContent = data.title;
+        document.getElementById('view-desc').textContent = data.desc;
+       
+        const iconContainer = document.getElementById('view-icon-container');
+        iconContainer.className = `w-20 h-20 md:w-24 md:h-24 rounded-3xl flex items-center justify-center text-4xl md:text-5xl shrink-0 shadow-inner ${data.bgColor}`;
+
+
+        const contentArea = document.getElementById('content-area');
+        contentArea.innerHTML = '';
+
+
+        // Add Intro Paragraph
+        if (data.intro) {
+            contentArea.innerHTML += `
+                <div class="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-stone-100 mb-8">
+                    <p class="text-stone-700 leading-relaxed text-lg">
+                        <strong class="text-stone-900 font-extrabold">Sobre este Rincón:</strong> ${data.intro}
+                    </p>
+                </div>
+            `;
+        }
+
+
+        if (id === 'overview') {
+            renderOverviewCharts();
+            return;
+        }
+
+
+        // Render Tools
+        data.tools.forEach(tool => {
+            const card = document.createElement('article');
+            card.className = 'bg-white rounded-[2rem] shadow-sm border border-stone-200 overflow-hidden transform transition hover:-translate-y-1 hover:shadow-lg duration-300';
+           
+            const warningHTML = tool.warning ? `
+                <div class="mt-4 mb-2 p-3.5 rounded-xl border border-rose-200 bg-rose-50 flex items-start gap-3">
+                    <span class="text-lg">⚠️</span>
+                    <p class="text-[13px] font-bold text-rose-800 pt-0.5 leading-snug">
+                        <span class="uppercase tracking-wider text-xs block mb-0.5 text-rose-900">Nota Ética</span>
+                        ${tool.warning}
+                    </p>
+                </div>
+            ` : '';
+
+
+            card.innerHTML = `
+                <div class="p-6 md:p-8 lg:p-10 border-b border-stone-100 bg-stone-50/80">
+                    <div class="flex flex-col xl:flex-row xl:items-start justify-between gap-6">
+                        <div class="flex-1">
+                            <h3 class="text-2xl md:text-3xl font-extrabold text-stone-800 mb-3">${tool.name}</h3>
+                            <p class="text-stone-600 leading-relaxed text-lg mb-5"><span class="font-bold text-stone-800">🎯 Propósito:</span> ${tool.purpose}</p>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="px-4 py-1.5 rounded-full text-xs font-extrabold bg-white border border-stone-200 text-stone-700 shadow-sm flex items-center gap-1.5">
+                                    <span>🤖</span> IA Sugerida: ${tool.engine}
+                                </span>
+                            </div>
+                        </div>
+                        <button class="copy-btn shrink-0 bg-brand hover:bg-brand-dark text-white font-extrabold py-3.5 px-8 rounded-2xl shadow-md transition-all flex items-center justify-center gap-3 group w-full xl:w-auto mt-4 xl:mt-0 text-lg">
+                            <span>Copiar Prompt</span>
+                            <span class="text-2xl group-hover:scale-125 transition-transform">📋</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="p-6 md:p-8 lg:p-10">
+                    <div class="flex items-center gap-4 mb-5">
+                        <span class="text-[11px] font-extrabold text-stone-400 uppercase tracking-widest bg-stone-100 px-3 py-1 rounded-full">Texto para la IA</span>
+                        <div class="h-px bg-stone-200 flex-grow"></div>
+                    </div>
+                   
+                    <div class="prompt-box font-mono text-[15px] md:text-base text-stone-700 p-6 md:p-8 rounded-2xl border border-stone-200 bg-white shadow-inner break-words">
+                        ${formatPromptText(tool.prompt)}
+                    </div>
+                   
+                    ${warningHTML}
+
+
+                    <div class="mt-6 p-4 rounded-xl border border-amber-200 bg-amber-50 flex items-start gap-3">
+                        <span class="text-xl">💡</span>
+                        <p class="text-[14px] font-bold text-amber-900 pt-0.5 leading-snug">
+                            Recuerda rellenar los datos entre corchetes <span class="bg-amber-200 text-amber-900 px-1 rounded">[COMO ESTOS]</span> antes de enviar el mensaje a tu IA.
+                        </p>
+                    </div>
+                </div>
+            `;
+
+
+            const copyButton = card.querySelector('.copy-btn');
+            copyButton.addEventListener('click', () => copyToClipboard(tool.prompt));
+
+
+            contentArea.appendChild(card);
+        });
+
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+
+    // --- Charts Logic ---
+    function renderOverviewCharts() {
+        const contentArea = document.getElementById('content-area');
+        contentArea.innerHTML += `
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-stone-200 flex flex-col">
+                    <h3 class="text-xl font-extrabold text-stone-800 mb-2 text-center">Catálogo de Herramientas</h3>
+                    <p class="text-sm text-stone-500 text-center mb-6">Distribución de los 9 prompts disponibles</p>
+                    <div class="chart-container flex-grow flex items-center justify-center">
+                        <canvas id="doughnutChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-stone-200 flex flex-col">
+                    <h3 class="text-xl font-extrabold text-stone-800 mb-2 text-center">Impacto en el Aula</h3>
+                    <p class="text-sm text-stone-500 text-center mb-6">Beneficios pedagógicos de la integración de IA</p>
+                    <div class="chart-container flex-grow flex items-center justify-center">
+                        <canvas id="polarChart"></canvas>
+                    </div>
+                </div>
+            </div>
+           
+            <div class="bg-brand-light border border-teal-100 rounded-[2rem] p-8 md:p-10 shadow-sm">
+                <h3 class="text-2xl font-extrabold text-brand-dark mb-6 flex items-center gap-3">
+                    <span class="bg-white w-10 h-10 rounded-full flex items-center justify-center shadow-sm">🚀</span>
+                    ¿Cómo empezar?
+                </h3>
+                <ol class="list-decimal list-inside text-teal-900 space-y-4 text-lg font-medium ml-2">
+                    <li><strong class="font-extrabold">Navega</strong> por los rincones usando el menú lateral.</li>
+                    <li><strong class="font-extrabold">Elige</strong> la herramienta que necesites (ej. crear una nota para padres).</li>
+                    <li><strong class="font-extrabold">Copia</strong> el texto haciendo clic en el botón verde.</li>
+                    <li><strong class="font-extrabold">Pégalo</strong> en tu IA favorita (Gemini, ChatGPT) y sustituye las variables.</li>
+                </ol>
+            </div>
+        `;
+
+
+        // Doughnut Chart (Distribution)
+        const realCorners = appData.rincones.filter(r => r.id !== 'overview');
+        const labels = realCorners.map(r => r.short);
+        const dataCounts = realCorners.map(r => r.tools.length);
+        const colors = realCorners.map(r => r.color);
+
+
+        const ctx1 = document.getElementById('doughnutChart').getContext('2d');
+        if (chartDist) chartDist.destroy();
+        chartDist = new Chart(ctx1, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: dataCounts,
+                    backgroundColor: colors,
+                    borderWidth: 3,
+                    borderColor: '#ffffff',
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            font: { family: 'Nunito', size: 14, weight: 'bold' },
+                            padding: 20,
+                            color: '#44403c'
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(28, 25, 23, 0.95)',
+                        titleFont: { family: 'Nunito', size: 14 },
+                        bodyFont: { family: 'Nunito', size: 15, weight: 'bold' },
+                        padding: 14,
+                        cornerRadius: 12,
+                        callbacks: {
+                            label: function(context) { return ` ${context.raw} Herramientas listas`; }
+                        }
+                    }
+                }
+            }
+        });
+
+
+        // Polar Area Chart (Impact)
+        const ctx2 = document.getElementById('polarChart').getContext('2d');
+        if (chartImpact) chartImpact.destroy();
+        chartImpact = new Chart(ctx2, {
+            type: 'polarArea',
+            data: {
+                labels: ['Ahorro Burocrático', 'Estética del Aula', 'Estimulación Sensorial', 'Regulación Emocional', 'Vínculo Familiar'],
+                datasets: [{
+                    data: [95, 80, 85, 90, 85],
+                    backgroundColor: [
+                        'rgba(59, 130, 246, 0.7)', // Blue (Bureaucracy)
+                        'rgba(244, 63, 94, 0.7)',  // Rose (Aesthetics)
+                        'rgba(234, 179, 8, 0.7)',  // Amber (Sensory)
+                        'rgba(16, 185, 129, 0.7)', // Emerald (Emotions)
+                        'rgba(139, 92, 246, 0.7)'  // Purple (Family)
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    r: {
+                        ticks: { display: false, max: 100 },
+                        grid: { color: '#e7e5e4', circular: true }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(28, 25, 23, 0.95)',
+                        titleFont: { family: 'Nunito', size: 14 },
+                        bodyFont: { family: 'Nunito', size: 14, weight: 'bold' },
+                        padding: 14,
+                        cornerRadius: 12,
+                        callbacks: {
+                            label: function(context) { return ` Potencial: ${context.raw}%`; }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+
+    // --- Initialization ---
+    document.addEventListener('DOMContentLoaded', initApp);
+
+
+</script>
+</body>
+</html>
